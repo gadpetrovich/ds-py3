@@ -11,8 +11,18 @@ RUN apt-get update && \
         zlib1g-dev liblzma-dev liblz4-dev libzstd-dev libsnappy-dev zip p7zip-full \
         libhdf5-dev libedit-dev \
         libzmq-dev \
-        git wget tmux nano sysstat htop mc \
-        python3-pip python3-dev
+        git wget tmux nano sysstat htop mc 
+        
+# python 3
+RUN add-apt-repository ppa:deadsnakes/ppa -yu && \
+    apt-get update && \
+    apt-get install -y python3.7-dev && \
+#    update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1 && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.7 2 && \
+#    python --version && sleep 60 && \
+    wget https://bootstrap.pypa.io/get-pip.py && \
+    python get-pip.py --prefix=/usr/local/ 
+        
 
 # update CMake
 RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | apt-key add - && \
@@ -88,7 +98,7 @@ RUN pip3 install scipy && \
     pip3 install sklearn && \
     pip3 install sklearn-pandas && \
     pip3 install statsmodels && \
-    pip3 install pyflux && \
+#    pip3 install pyflux && \
     pip3 install nltk && \
     pip3 install hmmlearn && \
     pip3 install xgboost && \
@@ -124,7 +134,7 @@ RUN pip3 install SimpleITK && \
 # increase counter to rebuild the image if some library changes
 ENV UPDATE_DL 1
 # install deep learning libraries
-RUN pip3 install tensorflow-gpu==$TF_VERSION && \
+RUN pip3 install tensorflow==$TF_VERSION && \
     pip3 install --no-deps keras && \
     pip3 install --no-deps edward && \
     pip3 install torch torchvision torchtext && \
@@ -135,25 +145,28 @@ RUN apt-get install -y curl && \
     curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
     apt-get install -y nodejs
 
+# мое безобразие
+RUN pip3 install obspy==1.1.1 joblib cachetools
+
 # install jupyter and extensions
-WORKDIR /jupyter/config
-WORKDIR /jupyter/secret
-RUN pip3 install jupyter && \
-    pip3 install jupyterlab && \
-    pip3 install jupyter_contrib_nbextensions && \
-    jupyter contrib nbextension install --system && \
-    pip3 install ipyvolume && \
-    pip3 install jupyterhub && \
-    pip3 install -U nbdime && \
-    nbdime extensions --enable && \
-    jupyter labextension install @jupyterlab/git && \
-    pip3 install --upgrade jupyterlab-git && \
-    jupyter serverextension enable --py jupyterlab_git && \
-    jupyter labextension install @jupyterlab/toc && \
-    jupyter labextension install @jupyterlab/github && \
-    pip3 install ipywidgets && \
-    jupyter nbextension enable --py --sys-prefix widgetsnbextension && \
-    jupyter labextension install @jupyter-widgets/jupyterlab-manager
+#WORKDIR /jupyter/config
+#WORKDIR /jupyter/secret
+#RUN pip3 install jupyter && \
+#    pip3 install jupyterlab && \
+#    pip3 install jupyter_contrib_nbextensions && \
+#    jupyter contrib nbextension install --system && \
+#    pip3 install ipyvolume && \
+#    pip3 install jupyterhub && \
+#    pip3 install -U nbdime && \
+#    nbdime extensions --enable && \
+#    jupyter labextension install @jupyterlab/git && \
+#    pip3 install --upgrade jupyterlab-git && \
+#    jupyter serverextension enable --py jupyterlab_git && \
+#    jupyter labextension install @jupyterlab/toc && \
+#    jupyter labextension install @jupyterlab/github && \
+#    pip3 install ipywidgets && \
+#    jupyter nbextension enable --py --sys-prefix widgetsnbextension && \
+#    jupyter labextension install @jupyter-widgets/jupyterlab-manager
 
 # install forked libraries
 RUN pip3 uninstall -y pillow && \
@@ -164,12 +177,30 @@ RUN wget https://get.docker.com -q -O /tmp/getdocker && \
     chmod +x /tmp/getdocker && \
     sh /tmp/getdocker
 
+
+# ssh
+RUN apt-get install -y openssh-server && \
+    mkdir /var/run/sshd && \
+    sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#AuthorizedKeysFile\t%h\/.ssh\/authorized_keys/AuthorizedKeysFile\t.ssh\/authorized_keys/' /etc/ssh/sshd_config
+
+# SSH login fix. Otherwise user is kicked off after login
+RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+
+ENV NOTVISIBLE "in users profile"
+RUN echo "export VISIBLE=now" >> /etc/profile
+
+RUN mkdir /root/.ssh && chmod 700 /root/.ssh
+
 # increase counter to rebuild the image if start files change
 ENV UPDATE_CMD 1
-COPY start-notebook.sh /usr/local/bin/start-notebook.sh
-COPY start-singleuser.sh /usr/local/bin/start-singleuser.sh
+#COPY start-notebook.sh /usr/local/bin/start-notebook.sh
+#COPY start-singleuser.sh /usr/local/bin/start-singleuser.sh
 
-WORKDIR /notebooks
+#WORKDIR /notebooks
 
-ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["start-notebook.sh"]
+#ENTRYPOINT ["/bin/sh", "-c"]
+#CMD ["start-notebook.sh"]
+
+#EXPOSE 22
+CMD ["/usr/sbin/sshd", "-D"]
